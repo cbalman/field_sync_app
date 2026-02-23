@@ -1,0 +1,67 @@
+name: fieldsync_pro
+description: Field asset management with offline-first architecture
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+  hooks_riverpod: ^2.5.1
+  flutter_hooks: ^0.20.5
+
+  # Base de datos local
+  drift: ^2.18.0
+  sqlite3_flutter_libs: ^0.5.24
+  path_provider: ^2.1.3
+  path: ^1.9.0
+
+  # HTTP & Red
+  dio: ^5.4.3
+  connectivity_plus: ^6.0.3
+
+  # Background tasks
+  workmanager: ^0.5.2
+
+  # Seguridad
+  flutter_secure_storage: ^9.2.2
+
+  # Medios
+  image_picker: ^1.1.2
+  flutter_image_compress: ^2.3.0
+
+  # Firma digital
+  syncfusion_flutter_signaturepad: ^25.1.41
+
+  # Navegación
+  go_router: ^14.2.7
+
+  # Utils
+  uuid: ^4.4.0
+  intl: ^0.19.0
+  freezed_annotation: ^2.4.1
+  json_annotation: ^4.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+  # Code generation
+  build_runner: ^2.4.11
+  drift_dev: ^2.18.0
+  riverpod_generator: ^2.4.3
+  freezed: ^2.5.2
+  json_serializable: ^6.8.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
