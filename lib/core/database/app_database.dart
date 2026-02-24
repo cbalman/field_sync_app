@@ -40,6 +40,8 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
+  AppDatabase.forTesting(QueryExecutor executor) : super(executor);
+
   @override
   int get schemaVersion => 1;
 
@@ -91,3 +93,4 @@ FormTemplatesDao formTemplatesDao(FormTemplatesDaoRef ref) =>
 @Riverpod(keepAlive: true)
 MediaDao mediaDao(MediaDaoRef ref) =>
     ref.watch(appDatabaseProvider).mediaDao;
+

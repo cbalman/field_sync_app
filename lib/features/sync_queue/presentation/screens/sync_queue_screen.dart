@@ -49,16 +49,21 @@ class SyncQueueScreen extends ConsumerWidget {
               const PopupMenuItem(
                 value: 'clean_orphans',
                 child: Row(
+                  mainAxisSize: MainAxisSize.min, n0
                   children: [
                     Icon(Icons.cleaning_services, size: 20),
                     SizedBox(width: 12),
-                    Text('Limpiar fotos huérfanas'),
+                    Flexible( // ← ENVOLVER en Flexible
+                      child: Text(
+                        'Limpiar fotos huérfanas',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
-
           const SizedBox(width: 16),
         ],
       ),

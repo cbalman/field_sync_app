@@ -47,6 +47,7 @@ class SyncEngine {
   Future<SyncResult> sync() async {
     int synced = 0;
     int failed = 0;
+    int orphansDeleted = 0;
 
     final items = await outboxDao.getPendingItems();
     print('🟡 Iniciando sync — items en outbox: ${items.length}');
@@ -77,7 +78,7 @@ class SyncEngine {
     final remaining = await outboxDao.getPendingItems();
     if (remaining.isEmpty) {
       try {
-        await _uploadPendingMedia();
+        orphansDeleted = await _uploadPendingMedia();
       } catch (e) {
         print('🔴 Error en uploadMedia: $e');
       }
@@ -94,7 +95,12 @@ class SyncEngine {
       print('🔴 Error en pullAssets: $e');
     }
 
-    return SyncResult(synced: synced, failed: failed);
+    return SyncResult(
+      synced: synced,
+      failed: failed,
+      orphansDeleted: orphansDeleted,
+    );
+
   }
 
   Future<void> _processItem(OutboxTableData item) async {
@@ -169,7 +175,7 @@ class SyncEngine {
     }
   }
 
-  Future<void> _uploadPendingMedia() async {
+  Future<int> _uploadPendingMedia() async {
     // 🆕 PASO 1: Limpiar huérfanas y archivos faltantes
     print('🧹 Limpiando fotos huérfanas...');
     final orphansDeleted = await mediaDao.deleteOrphanMedia();
@@ -226,6 +232,8 @@ class SyncEngine {
         }
       }
     }
+
+    return orphansDeleted;
   }
 
 }
@@ -233,5 +241,11 @@ class SyncEngine {
 class SyncResult {
   final int synced;
   final int failed;
-  const SyncResult({required this.synced, required this.failed});
+  final int orphansDeleted;
+
+  const SyncResult({
+    required this.synced,
+    required this.failed,
+    this.orphansDeleted = 0,
+  });
 }
