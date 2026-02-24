@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../auth/presentation/auth_notifier.dart';
+import '../../../sync_queue/presentation/providers/sync_queue_provider.dart';
 import '../../../../core/network/connectivity_service.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../../shared/theme/app_theme.dart';
 import '../../../../shared/router/app_router.dart';
-import '../../../auth/presentation/auth_notifier.dart';
 import '../../../../core/sync/sync_engine.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -15,12 +16,7 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authNotifierProvider);
     final connectivityAsync = ref.watch(connectivityStreamProvider);
-    final pendingCount = ref.watch(
-      inspectionsDaoProvider.select(
-            (dao) => dao.watchPendingCount(),
-      ),
-    );
-
+    final pendingCountAsync = ref.watch(outboxPendingCountProvider);
     final isOnline = connectivityAsync.valueOrNull ?? false;
     final userName = authState.user?.name.split(' ').first ?? 'Técnico';
 
@@ -73,13 +69,11 @@ class DashboardScreen extends ConsumerWidget {
             const SizedBox(height: 24),
 
             // Card de sincronización
-            StreamBuilder<int>(
-              stream: pendingCount,
-              builder: (context, snapshot) {
-                final count = snapshot.data ?? 0;
-                return _SyncStatusCard(pendingCount: count, isOnline: isOnline);
-              },
+            _SyncStatusCard(
+              pendingCount: pendingCountAsync.valueOrNull ?? 0,
+              isOnline: isOnline,
             ),
+            
             const SizedBox(height: 16),
 
             // Acciones rápidas

@@ -36,6 +36,29 @@ class SyncQueueScreen extends ConsumerWidget {
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
           ),
+
+          // 🆕 BOTÓN DE LIMPIEZA
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) async {
+              if (value == 'clean_orphans') {
+                await _cleanOrphanMedia(context, ref);
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'clean_orphans',
+                child: Row(
+                  children: [
+                    Icon(Icons.cleaning_services, size: 20),
+                    SizedBox(width: 12),
+                    Text('Limpiar fotos huérfanas'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
           const SizedBox(width: 16),
         ],
       ),
@@ -198,28 +221,26 @@ class SyncQueueScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _deleteItem(
-      BuildContext context, WidgetRef ref, int id) async {
+  Future<void> _deleteItem(BuildContext context, WidgetRef ref, int id) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar item'),
-        content: const Text(
-            '¿Seguro? Este reporte pendiente se perderá y no se enviará al servidor.'),
+        content: const Text('¿Seguro? Este reporte pendiente se perderá.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Cancelar')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style:
-            TextButton.styleFrom(foregroundColor: AppColors.failed),
+            style: TextButton.styleFrom(foregroundColor: AppColors.failed),
             child: const Text('Eliminar'),
           ),
         ],
       ),
     );
     if (confirm == true && context.mounted) {
+      await ref.read(outboxDaoProvider).deleteItem(id); // ← llamada real al DAO
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Item eliminado de la cola'),
@@ -234,22 +255,21 @@ class SyncQueueScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Limpiar fallidos'),
-        content: const Text(
-            'Se eliminarán todos los items fallidos. Esta acción no se puede deshacer.'),
+        content: const Text('Se eliminarán todos los items fallidos.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Cancelar')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style:
-            TextButton.styleFrom(foregroundColor: AppColors.failed),
+            style: TextButton.styleFrom(foregroundColor: AppColors.failed),
             child: const Text('Limpiar'),
           ),
         ],
       ),
     );
     if (confirm == true && context.mounted) {
+      await ref.read(outboxDaoProvider).deleteAllFailed();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Items fallidos eliminados'),
@@ -258,6 +278,89 @@ class SyncQueueScreen extends ConsumerWidget {
       );
     }
   }
+
+  // Al final de _SyncQueueScreenState o como método de SyncQueueScreen
+
+  Future<void> _cleanOrphanMedia(BuildContext context, WidgetRef ref) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Limpiar fotos huérfanas'),
+        content: const Text(
+            'Esto eliminará fotos de inspecciones que ya no existen localmente.\n\n'
+                'Las inspecciones válidas NO se verán afectadas.\n\n'
+                '¿Continuar?'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.orange,
+            ),
+            child: const Text('Limpiar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && context.mounted) {
+      try {
+        // Mostrar loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 12),
+                Text('Limpiando...'),
+              ],
+            ),
+            duration: Duration(seconds: 10),
+          ),
+        );
+
+        final mediaDao = ref.read(mediaDaoProvider);
+        final deleted = await mediaDao.deleteOrphanMedia();
+        await mediaDao.cleanOrphanFiles();
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(deleted > 0
+                    ? '✅ Eliminadas $deleted fotos huérfanas'
+                    : 'No se encontraron fotos huérfanas'
+                ),
+                backgroundColor: deleted > 0 ? Colors.green : Colors.grey,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text('❌ Error: $e'),
+                backgroundColor: AppColors.failed,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+        }
+      }
+    }
+  }
+
 }
 
 // ── Header de estado de sincronización ──────────────────────────────────────
@@ -485,7 +588,7 @@ class _OutboxItemCard extends StatelessWidget {
             ),
 
             // ── Acciones (solo para failed) ──────────────────────────────
-            if (isFailed) ...[
+            if (onDelete != null) ...[
               const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,

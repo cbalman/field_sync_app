@@ -30,4 +30,18 @@ class AssetsDao extends DatabaseAccessor<AppDatabase> with _$AssetsDaoMixin {
 
   Future<int> insertAsset(AssetsTableCompanion asset) =>
       into(assetsTable).insert(asset);
+
+  Future<void> updateRemoteId({
+    required String localUuid,
+    required String remoteId,
+    required DateTime syncedAt,
+  }) async {
+    await (update(assetsTable)
+      ..where((t) => t.remoteId.equals(localUuid)))
+        .write(AssetsTableCompanion(
+      remoteId: Value(remoteId),
+      syncedAt: Value(syncedAt),
+    ));
+  }
+
 }

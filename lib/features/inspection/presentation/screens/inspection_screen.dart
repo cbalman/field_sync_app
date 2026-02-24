@@ -1,13 +1,19 @@
 import 'dart:convert';
+
+import 'dart:io';
+
 import 'package:drift/drift.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:uuid/uuid.dart';
-import '../../domain/form_schema.dart';
+import 'package:go_router/go_router.dart';
+
 import '../widgets/dynamic_form.dart';
 import '../form_state_notifier.dart';
+import '../../domain/form_schema.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../auth/presentation/auth_notifier.dart';
+import '../../../../shared/router/app_router.dart';
 
 const _testSchemaJson = '''
 {
@@ -111,27 +117,70 @@ class InspectionScreen extends ConsumerWidget {
     );
 
     // 2. Agregar a OutboxTable
+    final assetsDao = ref.read(assetsDaoProvider);
+    final asset = await assetsDao.getAssetByRemoteId(assetId);
+    final assetNumericId = int.tryParse(asset?.remoteId ?? assetId);
+
+    if (assetNumericId == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('⚠️ Este activo aún no se sincronizó. Sincronizá primero y volvé a intentar.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Resolver el asset_id numérico buscando en la DB local
     final outboxDao = ref.read(outboxDaoProvider);
+
     await outboxDao.insertItem(
       OutboxTableCompanion(
         entityType: const Value('inspection'),
         entityId: Value(uuid),
-        operation: const Value('CREATE'),
+        operation: const Value('create'),
         payload: Value(jsonEncode({
           'local_uuid': uuid,
-          'asset_id': int.tryParse(assetId) ?? 0,
+          'asset_id': assetNumericId,  // ← ahora es el ID numérico del servidor
           'form_id': schema.formId,
           'form_version': schema.version,
-          'device_id': user?.deviceId ?? '',
+          'device_id': user?.deviceId ?? 'simulator-dev-device',
           'form_data': formData,
           'created_at': now.toIso8601String(),
           'updated_at': now.toIso8601String(),
         })),
-        deviceId: Value(user?.deviceId ?? ''),
+        deviceId: Value(user?.deviceId ?? 'simulator-dev-device'),
         status: const Value('pending'),
         createdAt: Value(now),
       ),
     );
+
+    // 3. Registrar fotos en MediaFilesTable
+    final mediaDao = ref.read(mediaDaoProvider);
+    for (final section in schema.sections) {
+      for (final field in section.fields) {
+        if (field.type == FieldType.photo) {
+          final photos = formData[field.id];
+          if (photos is List) {
+            for (final path in photos) {
+              final file = File(path as String);
+              final fileSize = await file.length();
+              await mediaDao.insertMedia(
+                MediaFilesTableCompanion.insert(
+                  inspectionUuid: uuid,
+                  fieldId: field.id,
+                  localPath: path,
+                  fileSizeBytes: Value(fileSize),
+                ),
+              );
+            }
+          }
+        }
+      }
+    }
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -140,7 +189,7 @@ class InspectionScreen extends ConsumerWidget {
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.of(context).pop();
+      context.go(AppRoutes.assets);
     }
   }
 

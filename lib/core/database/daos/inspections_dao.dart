@@ -45,11 +45,12 @@ class InspectionsDao extends DatabaseAccessor<AppDatabase>
       inspectionsTable.syncStatus.equals('pending'));
     return query.map((row) => row.read(countExp) ?? 0).watchSingle();
   }
-}
 
-Stream<List<InspectionsTableData>> watchInspectionsByAsset(String assetRemoteId) {
-  return (select(inspectionsTable)
-    ..where((t) => t.assetRemoteId.equals(assetRemoteId))
-    ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-      .watch();
+  Stream<List<InspectionsTableData>> watchInspectionsByAsset(String assetRemoteId) {
+    return (select(inspectionsTable)
+      ..where((t) => t.assetRemoteId.equals(assetRemoteId))
+      ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+        .watch();
+  }
+
 }
